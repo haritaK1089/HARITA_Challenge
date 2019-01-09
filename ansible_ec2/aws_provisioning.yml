@@ -6,7 +6,7 @@
     instance_type: t2.micro
     security_group: webservers_sg
     image: ami-0080e4c5bc078760e
-    keypair: /home/vagrant/.ssh/id_rsa
+    keypair: Newkeypair
     region: us-east-1
     count: 1
   vars_files:
@@ -27,11 +27,11 @@
           - proto: tcp
             from_port: 80
             to_port: 80
-            cidr_port: 0.0.0.0/0
+            cidr_ip: 0.0.0.0/0
           - proto: tcp
             from_port: 443
             to_port: 443
-            cidr_port: 0.0.0.0/0
+            cidr_ip: 0.0.0.0/0
         rules_egress:
           - proto: all
             cidr_ip: 0.0.0.0/0
@@ -55,9 +55,9 @@
 
     - name: Add tag to Instance(s)
       ec2_tag:
-        aws-access_key: "{{ aws_access_key }}"
+        aws_access_key: "{{ aws_access_key }}"
         aws_secret_key: "{{ aws_secret_key }}"
-        resources: "{{ item.id }}"
+        resource: "{{ item.id }}"
         region: "{{ region }}"
         state: "present"
       with_items: "{{ ec2.instances }}"
@@ -71,13 +71,15 @@
         state: started
       with_items: "{{ ec2.instances }}"
 
-- hosts: webserver
-  remote_user: vagrant
+- hosts: webservers
+  remote_user: ubuntu
   become: yes
-  gather_facts: no
+  gather_facts: yes
   pre_tasks:
   - name: Install Python
-    raw: 'sudo apt-get -y install python'
+    apt:
+      name: python
+      state: present
   tasks:
   - name: Install Apache
     apt:
