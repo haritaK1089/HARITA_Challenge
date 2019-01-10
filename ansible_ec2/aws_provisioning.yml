@@ -72,21 +72,92 @@
       with_items: "{{ ec2.instances }}"
 
 - hosts: webservers
-  remote_user: ubuntu
+  remote_user: ec2-user
   become: yes
   gather_facts: yes
   pre_tasks:
   - name: Install Python
-    apt:
+    yum:
       name: python
       state: present
   tasks:
   - name: Install Apache
-    apt:
-      name: apache2
+    yum:
+      name: httpd
       state: present
   - name: Enable apach2 service
     service:
-      name: apache2
+      name: httpd
       state: started
       enabled: yes
+  - name: Copy index.html to document root
+    copy:
+      src: /home/vagrant/HARITA_Challenge/ansible_ec2/index.html
+      dest: /var/www/html/
+      mode: 0744
+  - name: Add DNS name to the ip address
+    route53:
+      state: present
+      zone: cloud.learnstorage.online.
+      record: cloud.learnstorage.online.
+      type: A
+      ttl: 60
+      value: "{{ item.public_ip }}"
+      wait: yes
+  - name: Install mod_ssl certificate
+    yum:
+      name: mod_ssl
+      state: present
+  - name: Copy certs to appropriate locations
+    copy: 
+      src: /home/vagrant/HARITA_Challenge/ansible_ec2/webserver.crt
+      dest: /etc/pki/tls/certs/
+      mode: 600
+  - name: Copy private cert to appropriate locations
+    copy: 
+      src: /home/vagrant/HARITA_Challenge/ansible_ec2/webserver.pem
+      dest: /etc/pki/tls/private/
+      mode: 600
+  - name: Replace contents of ssl.conf
+    replace:
+      path: /etc/httpd/conf.d/ssl.conf
+      regexp: '/etc/pki/tls/certs/*.crt$'
+      replace: '/etc/pki/tls/certs/webserver.crt'
+      backup: yes
+  - name: Replace contents of ssl.conf
+    replace:
+      path: /etc/httpd/conf.d/ssl.conf
+      regexp: '/etc/pki/tls/private/*$'
+      replace: '/etc/pki/tls/certs/webserver.pem'
+      backup: yes
+  - name: Replace contents of ssl.conf
+    replace:
+      path: /etc/httpd/conf.d/ssl.conf
+      regexp: '/etc/pki/tls/certs/*.crt$'
+      replace: '/etc/pki/tls/certs/webserver.crt'
+      backup: yes
+  - name: Add port 443 block
+    blockinfile:
+      path: /etc/httpd/conf.d/ssl.conf
+      insertafter: EOF
+      backup: yes
+      block: "<VirtualHost *:443>
+      ServerName cloud.learnstorage.online
+      Document Root /var/www/html
+      Directory Index index.html
+      </VirtualHost>"
+  - name: Redirect http traffic to https
+    blockinfile:
+      path: /etc/httpd/conf/httpd.conf
+      insertafter: EOF
+      backup: yes
+      block: "<VirtualHost *:80>
+      RewriteEngine On
+      RewriteCond %{HTTP:X-Forwarded-Proto} =http
+      RewriteRule .* https://%{HTTP:Host}%{REQUEST_URI} [L,R=permanent]
+      </VirtualHost>"
+  - name: Restart httpd
+    service: 
+      name: httpd
+      state: restarted
+...

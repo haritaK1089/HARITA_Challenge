@@ -1,0 +1,33 @@
+- hosts: webservers
+  remote_user: ec2-user
+  become: yes
+  gather_facts: yes
+  pre_tasks:
+    - name: Install Python
+      yum:
+        name: python
+        state: present
+  tasks:
+    - name: Install Apache
+      yum:
+        name: httpd
+        state: present
+    - name: Enable apach2 service
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+    - name: Copy index.html to document root
+      copy:
+        src: /home/vagrant/HARITA_Challenge/ansible_ec2/index.html
+        dest: /var/www/html/
+        mode: 0744
+    - name: Add DNS name to the ip address
+      route53:
+        state: present
+        zone: cloud.learnstorage.online.
+        record: cloud.learnstorage.online.
+        type: A
+        ttl: 3600
+        value: 35.170.50.48
+        wait: yes
