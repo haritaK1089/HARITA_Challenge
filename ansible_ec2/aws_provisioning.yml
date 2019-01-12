@@ -1,5 +1,11 @@
+#######################################################################################
+#Program Name: EC2 setup with Hello World! web application
+#Author:Harita Kambhampati
+#Version:1.0
+########################################################################################
 ---
-- hosts: local
+# Setting up hosts, connection and variables
+- hosts: local 
   connection: local
   gather_facts: False
   vars:
@@ -12,6 +18,7 @@
   vars_files:
     - aws_keys.yml
   tasks:
+  # Creating a scurity group called webservers_sg and opening ports for SSH, HTTP and HTTPS
     - name: Create a security group
       ec2_group:
         name: "{{ security_group }}"
@@ -35,6 +42,7 @@
         rules_egress:
           - proto: all
             cidr_ip: 0.0.0.0/0
+  # Launching EC2 instance
     - name: Launch the new EC2 instance
       ec2:
         aws_access_key: "{{ aws_access_key }}"
@@ -47,12 +55,13 @@
         keypair: "{{ keypair }}"
         count: "{{ count }}"
       register: ec2
+  # Adding newly created host under webservers group
     - name: Add the newly created host so that we can further contact it
       add_host:
         name: "{{ item.public_ip }}"
         groups: webservers
       with_items: "{{ ec2.instances }}"
-
+# Appling tags to generated EC2 Instance
     - name: Add tag to Instance(s)
       ec2_tag:
         aws_access_key: "{{ aws_access_key }}"
@@ -64,6 +73,7 @@
       args:
         tags:
           Type: webserver
+ # Allowing instance to start and run
     - name: Wait for SSH to come up
       wait_for:
         host: "{{ item.public_ip }}"
@@ -82,7 +92,7 @@
         value: "{{ item.public_ip }}"
       with_items: ec2.instances 
 
-
+# Instance is setup and running
 - hosts: webservers
   remote_user: ec2-user
   become: yes
