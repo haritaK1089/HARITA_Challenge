@@ -70,11 +70,25 @@
         port: 22
         state: started
       with_items: "{{ ec2.instances }}"
+    - name: Add DNS name to the ip address
+      route53:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        command: create
+        zone: cloud.learnstorage.online
+        record: cloud.learnstorage.online
+        type: A
+        ttl: 3600
+        value: "{{ item.public_ip }}"
+      with_items: ec2.instances 
+
 
 - hosts: webservers
   remote_user: ec2-user
   become: yes
   gather_facts: yes
+  vars_files:
+    - aws_keys.yml
   pre_tasks:
   - name: Install Python
     yum:
@@ -95,50 +109,54 @@
       src: /home/vagrant/HARITA_Challenge/ansible_ec2/index.html
       dest: /var/www/html/
       mode: 0744
-  - name: Add DNS name to the ip address
-    route53:
-      state: present
-      zone: cloud.learnstorage.online.
-      record: cloud.learnstorage.online.
-      type: A
-      ttl: 60
-      value: "{{ item.public_ip }}"
-      wait: yes
+ # - name: Add DNS name to the ip address
+    #route53:
+      #aws_access_key: "{{ aws_access_key }}"
+     # aws_secret_key: "{{ aws_secret_key }}"
+      #command: create
+      #zone: cloud.learnstorage.online
+      #record: cloud.learnstorage.online
+     # type: A
+      #ttl: 60
+     # value: "{{ item.public_ip }}"
+    #with_items: ec2.instances
+      #wait: yes
+
   - name: Install mod_ssl certificate
     yum:
       name: mod_ssl
       state: present
   - name: Copy certs to appropriate locations
     copy: 
-      src: /home/vagrant/HARITA_Challenge/ansible_ec2/webserver.crt
+      src: /home/vagrant/HARITA_Challenge/ansible_ec2/cacert.crt
       dest: /etc/pki/tls/certs/
       mode: 600
   - name: Copy private cert to appropriate locations
     copy: 
-      src: /home/vagrant/HARITA_Challenge/ansible_ec2/webserver.pem
+      src: /home/vagrant/HARITA_Challenge/ansible_ec2/webserver.crt
       dest: /etc/pki/tls/private/
       mode: 600
   - name: Replace contents of ssl.conf
     replace:
-      path: /etc/httpd/conf.d/ssl.conf
+      destfile: /etc/httpd/conf.d/ssl.conf
       regexp: '/etc/pki/tls/certs/*.crt$'
       replace: '/etc/pki/tls/certs/webserver.crt'
       backup: yes
   - name: Replace contents of ssl.conf
     replace:
-      path: /etc/httpd/conf.d/ssl.conf
+      destfile: /etc/httpd/conf.d/ssl.conf
       regexp: '/etc/pki/tls/private/*$'
       replace: '/etc/pki/tls/certs/webserver.pem'
       backup: yes
   - name: Replace contents of ssl.conf
     replace:
-      path: /etc/httpd/conf.d/ssl.conf
+      destfile: /etc/httpd/conf.d/ssl.conf
       regexp: '/etc/pki/tls/certs/*.crt$'
       replace: '/etc/pki/tls/certs/webserver.crt'
       backup: yes
   - name: Add port 443 block
     blockinfile:
-      path: /etc/httpd/conf.d/ssl.conf
+      destfile: /etc/httpd/conf.d/ssl.conf
       insertafter: EOF
       backup: yes
       block: "<VirtualHost *:443>
@@ -148,7 +166,7 @@
       </VirtualHost>"
   - name: Redirect http traffic to https
     blockinfile:
-      path: /etc/httpd/conf/httpd.conf
+      destfile: /etc/httpd/conf/httpd.conf
       insertafter: EOF
       backup: yes
       block: "<VirtualHost *:80>
