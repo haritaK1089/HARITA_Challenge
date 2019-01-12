@@ -149,41 +149,43 @@
   - name: Replace contents of ssl.conf
     replace:
       destfile: /etc/httpd/conf.d/ssl.conf
-      regexp: '/etc/pki/tls/certs/*.crt$'
-      replace: '/etc/pki/tls/certs/webserver.crt'
+      regexp: '^SSLCertificateFile /etc/pki/tls/certs/*.crt$'
+      replace: 'SSLCertificateFile /etc/pki/tls/certs/cacert.crt'
       backup: yes
   - name: Replace contents of ssl.conf
     replace:
       destfile: /etc/httpd/conf.d/ssl.conf
-      regexp: '/etc/pki/tls/private/*$'
-      replace: '/etc/pki/tls/certs/webserver.pem'
+      regexp: '^SSLCertificateKeyFile /etc/pki/tls/private/*$'
+      replace: 'SSLCertificateKeyFile /etc/pki/tls/private/webserver.crt'
       backup: yes
   - name: Replace contents of ssl.conf
     replace:
       destfile: /etc/httpd/conf.d/ssl.conf
-      regexp: '/etc/pki/tls/certs/*.crt$'
-      replace: '/etc/pki/tls/certs/webserver.crt'
+      regexp: '^SSLCertificateChainFile /etc/pki/tls/certs/*.crt$'
+      replace: 'SSLCertificateChainFile /etc/pki/tls/certs/cacert.crt'
       backup: yes
   - name: Add port 443 block
     blockinfile:
       destfile: /etc/httpd/conf.d/ssl.conf
       insertafter: EOF
       backup: yes
-      block: "<VirtualHost *:443>
-      ServerName cloud.learnstorage.online
-      Document Root /var/www/html
-      Directory Index index.html
-      </VirtualHost>"
+      block: |
+        <VirtualHost _default_:443>
+          ServerName cloud.learnstorage.online
+          DocumentRoot /var/www/html
+          DirectoryIndex index.html
+        </VirtualHost>
   - name: Redirect http traffic to https
     blockinfile:
       destfile: /etc/httpd/conf/httpd.conf
       insertafter: EOF
       backup: yes
-      block: "<VirtualHost *:80>
-      RewriteEngine On
-      RewriteCond %{HTTP:X-Forwarded-Proto} =http
-      RewriteRule .* https://%{HTTP:Host}%{REQUEST_URI} [L,R=permanent]
-      </VirtualHost>"
+      block: |
+        <VirtualHost *:80>
+          RewriteEngine On
+          RewriteCond %{HTTP:X-Forwarded-Proto} =http
+          RewriteRule .* https://%{HTTP:Host}%{REQUEST_URI} [L,R=permanent]
+        </VirtualHost>
   - name: Restart httpd
     service: 
       name: httpd
