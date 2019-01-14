@@ -178,7 +178,7 @@
   - name: Redirect http traffic to https
     blockinfile:
       destfile: /etc/httpd/conf/httpd.conf
-      insertafter: EOF
+      insertafter: "# END ANSIBLE MANAGED BLOCK"
       backup: yes
       block: |
         <VirtualHost *:80>
